@@ -10,7 +10,7 @@ int count=5;
 
 //module_param_array(a,int,&count,S_IRUGO);
 
-int  add_from_array(int arr[])
+static int  add_from_array(int arr[])
 {
 	int res=0;
 	int i=0;

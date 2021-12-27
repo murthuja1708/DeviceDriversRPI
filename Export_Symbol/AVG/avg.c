@@ -19,7 +19,7 @@ static int __init avg_of_num_init(void)
 }
 static void __exit avg_of_num_cleanup(void)
 {
-	printk("cleaning up add function\n");
+	printk("cleaning up avg function\n");
 }
 
 module_init(avg_of_num_init);
