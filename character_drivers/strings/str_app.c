@@ -6,16 +6,24 @@
 #include<string.h>
 #include<fcntl.h>
 
-#define DATA_SIZE 10
-#define BLOCK_SIZE 100
+
+#define BLOCK_SIZE 4096
 
 int main(int argc,char* argv[])
 {
 
-    char data_read[20];
-    //char* data_read=malloc(sizeof(char)*4096);
+    char block[BLOCK_SIZE];
+    char data_read[BLOCK_SIZE];
+    
 
     FILE* fptr=fopen("file.txt","r");
+    
+    if(!fptr)
+    {
+        perror("error:");
+        return -1;
+    }
+
     int fd=open("/dev/Str",O_RDWR);
 
    
@@ -24,58 +32,29 @@ int main(int argc,char* argv[])
         perror("error:");
         return -1;
     }
-    /*if(!fptr)
-    {
-        perror("error:");
-        return -1;
-    }*/
     else{
-        //lseek(fd,0,SEEK_CUR);
-        int cnt=read(fd,(char*)data_read,56);
         
-        printf("%s\n",data_read);
         
-    /*    size_t total_read,total_written=0,nread,nwrite=0;
-        size_t len=strlen(block);
-
-        do
+        size_t total_read,total_written=0,nread,nwrite=0;
+        size_t count;
+        
+        while((count=fread(block,1,BLOCK_SIZE,fptr)) > 0)
         {
-            nwrite=write(fd,block+total_written,len);
-            total_written+=nwrite;
-            //printf("total written bytes %ld and wirtten now %ld\n",total_written,nwrite);
-            nread=read(fd,data_read,len);
-            total_read+=nread;
-            printf("%s\n",data_read);
-        } while (total_written < len);*/
-
-/*
-        do
-        {
-            nread=read(fd,data_read,len);
-            total_read+=nread;
-            printf("total read %ld and data read is %s\n",total_read,data_read);
-        } while (total_read < len);
-
-*/
-        
-        
-        
-
-        /*while((nread=fread(block,1,BLOCK_SIZE,fptr)) >0)
-        {
-            total_read=0;
-            block[nread]='\0';
-            while (total_read != nread)
+            total_written=0;
+            printf("count is %ld\n",count);
+            do
             {
-                nwrite=write(fd,block,nread);
-                printf("bytes written %ld",nwrite);
-                nread=read(fd,data_read,nread);
-                printf("bytes read %ld\n",nread);
-                printf("%s\n",data_read);
+                nwrite=write(fd,block+total_written,count);
+                printf("written  %ld\n",nwrite);
+                total_written+=nwrite;
+                nread=read(fd,data_read,nwrite);
                 total_read+=nread;
-            }
-            
-        }*/
+                printf("read  %ld\n",nread);
+                printf("%s\n",data_read);
+                memset(data_read,0,BLOCK_SIZE);
+            } while (total_written < count);
+        }
+        
         close(fd);
         fclose(fptr);
         
