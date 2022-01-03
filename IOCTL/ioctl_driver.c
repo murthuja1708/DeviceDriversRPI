@@ -45,6 +45,7 @@ static int ioctl_open(struct inode* inode,struct file* filep)
 static long int my_ioctl(struct file* filep,unsigned cmd,unsigned long argp)
 {
      long result;
+     struct uart uart_params;
      
     switch (cmd)
     {
@@ -54,7 +55,8 @@ static long int my_ioctl(struct file* filep,unsigned cmd,unsigned long argp)
         printk("result %ld",result);
         if(result==0)
         {
-            printk(KERN_INFO"value we got %d\n",baudrate);
+            printk(KERN_INFO"value we got %i\n",baudrate);
+
         }
         if(result>0)
         {
@@ -75,6 +77,11 @@ static long int my_ioctl(struct file* filep,unsigned cmd,unsigned long argp)
     
     case serial_baud_set|serial_stopbits_set|serial_parity_set:
         printk(KERN_ALERT"serial all\n");
+        result=copy_from_user((struct uart*)&uart_params,(struct uart*)argp,sizeof(struct uart));
+        printk(KERN_INFO"BAUD-RATE %d",uart_params.baud_rate);
+        printk(KERN_INFO"stop bits %i\n",uart_params.stop_bits);
+        printk(KERN_INFO"PARITY %c\n",uart_params.parity);
+        break;
     default:
         printk(KERN_ALERT"default\n");
         break;

@@ -17,7 +17,11 @@
 
 #define serial_max_nr 8
 
-
+struct uart{
+    unsigned int baud_rate;
+    unsigned int stop_bits;
+    unsigned char parity;
+};
 
 
 

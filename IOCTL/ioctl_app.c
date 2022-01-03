@@ -34,14 +34,17 @@ enum Parity{
 };
 
 enum StopBits{
-    serial_stop_1=0,
-    serial_stop_1=1
+    serial_stop_1=1,
+    serial_stop_2=2
 };
 
 
 int main()
 {
     int fd;
+    struct uart _uart_params;
+
+    
 
     fd=open("/dev/ioctl_driver",O_RDWR);
     int status;
@@ -50,16 +53,21 @@ int main()
         perror("error");
         exit(EXIT_FAILURE);
     }
+
+    _uart_params.baud_rate=serial_baudrate_9600;
+    _uart_params.parity='N';
+    _uart_params.stop_bits=serial_stop_2;
+
+    /*
     int baud=serial_baudrate_115200;
     int frame=serial_data_frame_8;
     int _parity=serial_parity_even;
 
     ioctl(fd,serial_baud_set,&baud);
     ioctl(fd,serial_databits_set,&frame);
-    ioctl(fd,serial_parity_set,&_parity);
+    ioctl(fd,serial_parity_set,&_parity);*/
 
-    int all=serial_baudrate_115200|serial_data_frame_8|serial_parity_even;
-    ioctl(fd,serial_baud_set|serial_databits_set|serial_parity_set,all);
+    ioctl(fd,serial_baud_set|serial_databits_set|serial_parity_set,&_uart_params);
 
 
     close(fd);
