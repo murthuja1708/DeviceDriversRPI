@@ -17,7 +17,7 @@ char data[MAX_BLOCK_SIZE]={'\0'};
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Murthu");
-MODULE_DESCRIPTION("driver that creates and calculates add,sub,div and mul\n");
+MODULE_DESCRIPTION("semaphores drivers\n");
 
 
 static int calc_open(struct inode *inode, struct file *file);
