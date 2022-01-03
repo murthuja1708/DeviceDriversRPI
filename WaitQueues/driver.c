@@ -8,8 +8,14 @@
 #include<linux/kdev_t.h>
 #include<linux/cdev.h>
 #include<linux/wait.h>
+#include<linux/jiffies.h>
+#include<linux/semaphore.h>
 
-int k_data;
+#define TIME_OUT 10000
+
+int k_data=0;
+
+struct semaphore k_data_sema;
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Murthu");
@@ -75,13 +81,11 @@ static int calc_open(struct inode *inode, struct file *file)
 {
     printk(KERN_INFO"Kernel Open Call\n");
     
-
     return 0;
 }
 
 static ssize_t set_data(struct file *filp, const char *buf, size_t len, loff_t * off)
 {
-    
     unsigned long result=copy_from_user(&k_data,(int*)buf,4);
     if(result == 0)
     {
@@ -102,18 +106,23 @@ static ssize_t set_data(struct file *filp, const char *buf, size_t len, loff_t *
 
 static ssize_t get_data(struct file *filp, char* buf, size_t len, loff_t * off)
 {
-    printk(KERN_DEBUG "process going to sleep\n");
     unsigned long result;
+    int wait_res;
+    
+    while (flag==0)
+    {
+        printk(KERN_DEBUG "process going to sleep\n");
+        wait_res=wait_event_interruptible(driver_queue,flag!=0);
+        printk(KERN_DEBUG "awoken\n");
+    }
 
-    wait_event_interruptible(driver_queue,flag!=0);
     k_data*=2;
+    printk(KERN_INFO"COPYING DATA TO USER\n");
     result=copy_to_user((int*)buf,&k_data,4);
     
-
     if(result == 0)
     {
         flag=0;
-        printk(KERN_DEBUG "awoken\n");
         return len;
     }
     else if(result>0)
