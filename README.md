@@ -11,3 +11,15 @@
     *   This is just basic hello world module
 *   **character drivers**
     *   created 4 drivers and 4 applications to test add,sub,mul,div
+*   **semaphores**
+    *   created two producers writing to kernel buffer
+    and checking in kernel if buffer is getting overwritten.
+    *   created two threads where in two threads are writing and reading.
+*   **IOCTL**
+    *   sending uart configuration data through ioctl function
+*   **gpio**
+    *   switch interrupt program.In interrupt handler toggling led pin.
+*   **Timers**
+    *   blinking led using timers by sending data through ioctl
+
+
