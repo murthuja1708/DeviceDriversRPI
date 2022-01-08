@@ -7,12 +7,17 @@
 #include<linux/fs.h>
 #include<linux/kdev_t.h>
 #include<linux/cdev.h>
-#include<linux/semaphore.h>
+
+
 
 #define MAX_BLOCK_SIZE 512
 
 char data[MAX_BLOCK_SIZE]={'\0'};
+static int flag=0;
+size_t arr_index=0;
 
+dev_t calc_dev=0;
+struct cdev kcalc_dev;
 
 
 MODULE_LICENSE("GPL");
@@ -20,39 +25,40 @@ MODULE_AUTHOR("Murthu");
 MODULE_DESCRIPTION("semaphores drivers\n");
 
 
-static int calc_open(struct inode *inode, struct file *file);
 
-static int  calc_release(struct inode *inode, struct file *file);
+static int Sema_open(struct inode *inode, struct file *file);
 
+static int  Sema_release(struct inode *inode, struct file *file);
 
-static ssize_t Write_Str(struct file *,const char *, size_t, loff_t *);
+static ssize_t Write_Str(struct file *,const char __user*, size_t, loff_t *);
 
-static ssize_t Read_Str(struct file *, char*, size_t, loff_t *);
-
-
-dev_t calc_dev=0;
-struct cdev kcalc_dev;
-
-struct semaphore data_sema;
+static ssize_t Read_Str(struct file *, char __user*, size_t, loff_t *);
 
 
 
-const char *device_path="/dev/ModernFiles";
+
+//DEFINE_SEMAPHORE(data_sema);
+
+
+
+//DECLARE_WAIT_QUEUE_HEAD(driver_queue);
+
+const char *device_path="ModernFiles";
 
 
 static struct file_operations fops={
     .owner      = THIS_MODULE,
     .read     = Read_Str,
     .write    = Write_Str,
-    .open     = calc_open,
-    .release  = calc_release,
+    .open     = Sema_open,
+    .release  = Sema_release,
 };
 
 
 
 static int __init Str_device_initialization(void)
 {
-    calc_dev = MKDEV(405,1238);
+    calc_dev = MKDEV(405,0);
     if(register_chrdev_region(calc_dev, 1,device_path) < 0)
     {
         printk(KERN_ALERT"\ncould not allocate device numbers\n");
@@ -74,60 +80,75 @@ static int __init Str_device_initialization(void)
     return 0;
 }
 
-static int calc_open(struct inode *inode, struct file *file)
+static int Sema_open(struct inode *inode, struct file *file)
 {
     printk(KERN_INFO"Kernel Open Call\n");
-    sema_init(&data_sema,1);
+    
+    
     return 0;
 }
 
-static ssize_t Write_Str(struct file *filp, const char *buf, size_t len, loff_t * off)
+static ssize_t Write_Str(struct file *filp, const char __user *buf, size_t len, loff_t * off)
 {
-    ssize_t retvalue=-1;
+    ssize_t retvalue;
+    unsigned long result;
     
-    unsigned long result=0;
-
-    printk(KERN_INFO "reading from offset %lld checking and truncating the len",*off);
-
-    if(*off + len > MAX_BLOCK_SIZE)
+    printk("writing %d bytes from pos %ll
+    d",len,filp->f_pos);
+    
+    if(arr_index+len > MAX_BLOCK_SIZE)
     {
-        len=MAX_BLOCK_SIZE - *off;
+        len=MAX_BLOCK_SIZE-arr_index;
     }
-    down(&data_sema);
-    //Returns number of bytes that could not be copied.
-    result=copy_from_user((char*)data,(char*)buf,len);
 
+    printk(KERN_INFO"acquiring  sema\n");
+
+    //Returns number of bytes that could not be copied.
+    
+    result=copy_from_user(&data[arr_index],(char*)buf,len);
     if(result == 0)
     {
-        printk(KERN_INFO"Data Successfully Written \n");
+        printk(KERN_INFO"Data Successfully Written \n%s\n",data);
         retvalue=len;
-        return retvalue;
+        flag=1;
+        arr_index+=len;
+        
+        //wake_up_interruptible(&driver_queue);
+        
     }
     else if(result > 0)
     {
         retvalue=len-result;
-        return retvalue;
+        arr_index+=retvalue;
+        
     }
-    printk(KERN_ALERT"Error writing Data\n");
+    
+    //printk(KERN_ALERT"Error writing Data\n");
     return retvalue;
-
 }
 
 
 static ssize_t Read_Str(struct file *filp, char* buf, size_t len, loff_t * off)
 {
     ssize_t retvalue=-1;
-    unsigned long str_len,result;
+    unsigned long result;
+    char *temp;
+    int i;
 
-    if(*off + len > MAX_BLOCK_SIZE)
+
+    printk("reading %d bytes from pos %d",len,arr_index);
+
+    if(arr_index+len > MAX_BLOCK_SIZE)
     {
-        len=MAX_BLOCK_SIZE - *off;
+        len=MAX_BLOCK_SIZE-arr_index;
     }
+    
 
-    printk(KERN_INFO "reading %ld bytes\n",len);
 
-    char *temp=data;
-    size_t i=0;
+    printk(KERN_INFO"reading %d bytes from pos %d\n",len,arr_index);
+
+    temp=data;
+    i=0;
     while (*temp!='\0' && i<MAX_BLOCK_SIZE)
     {
         if(*temp >= 'a' && *temp<='z')
@@ -140,24 +161,38 @@ static ssize_t Read_Str(struct file *filp, char* buf, size_t len, loff_t * off)
     
 
     /*Returns number of bytes that could not be copied.*/
-    result=copy_to_user(buf,data,len);
-    up(&data_sema);
+    result=copy_to_user(buf,data+arr_index,len);
+    
+    if(result==0)
+    {
+        printk(KERN_INFO"released sema\n");
+        flag=0;
+        arr_index+=len;
 
-    if(result>=0)
+        return len;
+    }
+    else if(result > 0)
     {
         retvalue=len-result;
-        return  retvalue;
+        arr_index+=len;
+        return retvalue;
     }
-    printk(KERN_ALERT "\n ERROR WRITING DATA TO USER\n ");
-    return retvalue;
+
+
+    else{
+        printk(KERN_ALERT "\n ERROR WRITING DATA TO USER\n ");
+    }
+    return 0;
     
 
 }
 
 
-static int  calc_release(struct inode *inode, struct file *file)
+static int  Sema_release(struct inode *inode, struct file *file)
 {
     printk(KERN_INFO"release call\n");
+    data[0]='\0';
+    arr_index=0;
     return 0;
 }
 
