@@ -16,38 +16,60 @@ MODULE_AUTHOR("Murthu");
 MODULE_DESCRIPTION("driver that creates and calculates add,sub,div and mul\n");
 
 static size_t arr_index=0;
-
+int device_operands[2]={0};
+int mode;
 
 /*dev_t calc_dev=0;
 struct cdev kcalc_dev;*/
 
-
-
 const char *device_path="/dev/Calc";
 
-static struct file_operations fops={
+struct driver_private_data drv_prvdata={
+    .total_devices=NO_OF_DEVICES,
+    .dev_data={
+
+        [0] = {
+            .buffer=device_operands,
+            .size=2,
+            .name="ADD"
+        },
+
+        [1] = {
+            .buffer=device_operands,
+            .size=2,
+            .name="SUB"
+        },
+
+        [2] = {
+            .buffer=device_operands,
+            .size=2,
+            .name="MUL"
+        },
+
+        [3] = {
+            .buffer=device_operands,
+            .size=2,
+            .name="DIV"
+        }
+
+    }
+};
+
+static struct file_operations fops1={
             .owner      = THIS_MODULE,
             .open     = calc_open,
             .release  = calc_release,
+            .read=Add_Read,
+            .write=Add_Write,
         };
-
-
-
-
-/*
-
-cdev_ --> dev_t dev && file_operations* ops 
-inode  --> dev_t i_rdev  ,file_operations* i_fop,cdev i_cdev
-
-*/
-
+        
 
 
 static int __init Calc_device_initialization(void)
 {
     int ret;
     size_t i,j;
-    drv_prvdata.device_number = MKDEV(451,1251);
+    drv_prvdata.device_number = MKDEV(451,0);
     ret=register_chrdev_region(drv_prvdata.device_number, 4,device_path);
     if(ret < 0)
     {
@@ -85,31 +107,15 @@ static int __init Calc_device_initialization(void)
 }
 
 
-int _strncmp(const char* str1,const char* str2,size_t n)
-{
-    size_t i=0;
-    while(i<n && str1[i]==str2[i])
-    {
-        i++;
-    }
-    if(i==n)
-    {
-        return 0;
-    }
-    else if(str1[i] > str2[i])
-    {
-        return str1[i]-str2[i];
-    }
-    return str2[i]-str1[i];
-}
-
 
 static int calc_open(struct inode *inode, struct file *filp)
 {
-    unsigned int minor_num;
+
     struct dev_private_data* devc_prv_data;
+    unsigned int minor_num;
     printk(KERN_INFO"Kernel Open Call\n");
-    
+    mode=filp->f_mode;
+    printk(KERN_INFO"mode is %d\n",mode);
     //finding which device is opened
     minor_num= MINOR(inode -> i_rdev);
     printk("minor number for which driver invoked %d\n",minor_num);
@@ -120,41 +126,32 @@ static int calc_open(struct inode *inode, struct file *filp)
     filp->private_data=devc_prv_data;
 
 
-    if(_strncmp(devc_prv_data->name,"ADD",3)==0)
+   switch (minor_num)
     {
-        //devc_prv_data->kcal_dev.ops->read=Add_Read;
-        //devc_prv_data->kcal_dev.ops->write=Add_Write;
-        fops.read=Add_Read;
+
+    case 0:
         fops.write=Add_Write;
-    }
+        fops.read=Add_Read;
+        break;    
     
-    else if(_strncmp(devc_prv_data->name,"SUB",3)==0)
-    {
-        //devc_prv_data->kcal_dev.ops->read=Sub_Read;
-        //devc_prv_data->kcal_dev.ops->write=Sub_Write;
-
-        fops.read=Sub_Read;
+    case 1:
         fops.write=Sub_Write;
-    }
-    
-    else if(_strncmp(devc_prv_data->name,"MUL",3)==0)
-    {
-        //devc_prv_data->kcal_dev.ops->read=Mul_Read;
-        //devc_prv_data->kcal_dev.ops->write=Mul_Write;
+        fops.read=Sub_Read;
+        break;
 
-        fops.read=Mul_Read;
+    case 2:
         fops.write=Mul_Write;
-    }
-    else if(_strncmp(devc_prv_data->name,"DIV",3)==0)
-    {
-        //devc_prv_data->kcal_dev.ops->read=Div_Read;
-        //devc_prv_data->kcal_dev.ops->write=Div_Write;
+        fops.read=Mul_Read;
+        break;
 
-        fops.read=Div_Read;
+    case 3:
         fops.write=Div_Write;
+        fops.read=Div_Read;
+        break;
+    
+    default:
+        break;
     }
-
-    devc_prv_data->kcal_dev.ops=&fops;
     
 
     return 0;
@@ -415,7 +412,7 @@ static ssize_t Div_Read(struct file *filp, char* buf, size_t len, loff_t * off)
     printk(KERN_INFO"1st & 2nd operand in read %d %d\n",pr_dvc_prvt_data->buffer[0],pr_dvc_prvt_data->buffer[1]);
     
     
-    _div=pr_dvc_prvt_data->buffer[0]/pr_dvc_prvt_data->buffer[1];;
+    _div=pr_dvc_prvt_data->buffer[0]/pr_dvc_prvt_data->buffer[1];
     
     printk(KERN_INFO"copying data to kernel space from user space");
     

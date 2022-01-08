@@ -18,8 +18,12 @@ MODULE_DESCRIPTION("driver that creates and calculates add,sub,div and mul\n");
 static size_t arr_index=0;
 int buffer[2];
 
-/*dev_t calc_dev=0;
-struct cdev kcalc_dev;*/
+dev_t calc_dev=0;
+struct cdev kcalc_dev;
+
+
+
+
 
 
 
@@ -33,6 +37,8 @@ static struct file_operations fops={
             .write=Add_Write,
         };
 
+
+
 /*
 
 cdev_ --> dev_t dev && file_operations* ops 
@@ -44,8 +50,8 @@ static int __init Calc_device_initialization(void)
 {
     int ret;
     size_t i,j;
-    drv_prvdata.device_number = MKDEV(451,0);
-    ret=register_chrdev_region(drv_prvdata.device_number, 4,device_path);
+    calc_dev = MKDEV(451,0);
+    ret=register_chrdev_region(calc_dev, 4,device_path);
     if(ret < 0)
     {
         printk(KERN_ALERT"\ncould not allocate device numbers\n");
@@ -55,18 +61,18 @@ static int __init Calc_device_initialization(void)
     i=0;
     while(i<4)
     {
-        printk(KERN_INFO"device number <major>:<minor>=%d:%d\n",MAJOR(drv_prvdata.device_number+i),MINOR(drv_prvdata.device_number+i));
+        printk(KERN_INFO"device number <major>:<minor>=%d:%d\n",MAJOR(calc_dev+i),MINOR(calc_dev+i));
         
-        cdev_init(&drv_prvdata.dev_data[i].kcal_dev,&fops); 
+        cdev_init(&kcalc_dev,&fops);
         
          //kcalc_dev to initialize with related file operations retuns nothing
 
-        if(cdev_add(&drv_prvdata.dev_data[i].kcal_dev,drv_prvdata.device_number+i,1) < 0)
+        if(cdev_add(&kcalc_dev,calc_dev+i,1) < 0)
         {
             j=0;
             while(j<i)
             {
-                unregister_chrdev_region(drv_prvdata.device_number+j,1);
+                unregister_chrdev_region(calc_dev+j,1);
                 j++;
             }
             printk(KERN_ALERT "\ncould not add devices to kernel\n");
@@ -93,13 +99,19 @@ static int calc_open(struct inode *inode, struct file *filp)
     minor_num= MINOR(inode -> i_rdev);
     printk("minor number for which driver invoked %d\n",minor_num);
 
-    
+    printfilep(filp);
     struct file_operations	*new_fops=filp->f_op;
+    
 
     printk(KERN_INFO"FUNCTION POINTERS %p and %p\n",new_fops->write,new_fops->read);
 
     switch (minor_num)
     {
+
+    case 0:
+        new_fops->write=Add_Write;
+        new_fops->read=Add_Read;
+        break;    
     
     case 1:
         new_fops->write=Sub_Write;
@@ -126,26 +138,31 @@ static int calc_open(struct inode *inode, struct file *filp)
 
 static ssize_t Add_Write(struct file *filp, const char *buf, size_t len, loff_t * off)
 {
-    ssize_t retvalue=-1;
+    printk(KERN_INFO"ADD WRITE FUNCTION CALL\n");
+    static ssize_t retvalue=-1;
     
 
     unsigned long result=0;
 
+    if((filp->f_mode & 31) == 29)
+    {
+        printk(KERN_INFO"read only mode so returning -1");
+        return -1;
+    }
 
+    printfilep(filp);
     //Returns number of bytes that could not be copied.
     result=copy_from_user(buffer,(int*)buf,len);
     
-    if(result == 0)
+    if(result >= 0)
     {
         printk(KERN_INFO"Data Successfully Written \n");
-        retvalue=len;
-        return retvalue;
-    }
-    else if(result > 0)
-    {
         retvalue=len-result;
+        printk("returning %d bytes\n",retvalue);
+        
         return retvalue;
     }
+    
     printk(KERN_ALERT"Error writing Data\n");
     return retvalue;
 }
@@ -153,15 +170,23 @@ static ssize_t Add_Write(struct file *filp, const char *buf, size_t len, loff_t 
 static ssize_t Add_Read(struct file *filp, char* buf, size_t len, loff_t * off)
 {
 
+    printk(KERN_INFO "Kernel Add READ Call\n");
+
+    if((filp->f_mode & 31) == 30)
+    {
+        printk("write only mode so returning -1");
+        return -1;
+    }
+
     ssize_t retvalue=-1;
 
     int _add=0;
     unsigned long result;
 
 
-    
+    printfilep(filp);
 
-    printk(KERN_INFO "Kernel Add READ Call\n");
+    
 
     printk(KERN_INFO"1st & 2nd operand in read %d %d\n",buffer[0],buffer[1]);
     
@@ -178,7 +203,6 @@ static ssize_t Add_Read(struct file *filp, char* buf, size_t len, loff_t * off)
     
     if(result==0)
     {
-        *off+=len;
         retvalue=len;
     }
     else if(result>0)
@@ -198,7 +222,7 @@ static ssize_t Sub_Write(struct file *filp, const char *buf, size_t len, loff_t 
 
     unsigned long result=0;
 
-    printk(KERN_INFO "Kernel Add WRITE Call\n");
+    printk(KERN_INFO "Kernel Sub WRITE Call\n");
     //Returns number of bytes that could not be copied.
     result=copy_from_user((int*)buffer,buf,len);
     
@@ -263,17 +287,13 @@ static ssize_t Mul_Write(struct file *filp, const char *buf, size_t len, loff_t 
     //Returns number of bytes that could not be copied.
     result=copy_from_user((int*)buffer,buf,len);
     
-    if(result == 0)
+    if(result >= 0)
     {
         printk(KERN_INFO"Data Successfully Written \n");
-        retvalue=len;
-        return retvalue;
-    }
-    else if(result > 0)
-    {
         retvalue=len-result;
         return retvalue;
     }
+    
     printk(KERN_ALERT"Error writing Data\n");
     return retvalue;
 }
@@ -292,17 +312,13 @@ static ssize_t Div_Write(struct file *filp, const char *buf, size_t len, loff_t 
     //Returns number of bytes that could not be copied.
     result=copy_from_user((int*)buffer,buf,len);
     
-    if(result == 0)
+    if(result >= 0)
     {
         printk(KERN_INFO"Data Successfully Written \n");
-        retvalue=len;
-        return retvalue;
-    }
-    else if(result > 0)
-    {
         retvalue=len-result;
         return retvalue;
     }
+    
     printk(KERN_ALERT"Error writing Data\n");
     return retvalue;
 }
@@ -393,19 +409,31 @@ static int  calc_release(struct inode *inode, struct file *file)
 {
     printk(KERN_INFO"resetting array index in release call\n");
     arr_index=0;
+    buffer[0]=0;
+    buffer[1]=0;
     return 0;
+}
+
+void printfilep(struct file* filp)
+{
+    printk(KERN_INFO"mode-->%d\n",filp->f_mode);
+    printk(KERN_INFO"pos-->%lld\n",filp->f_pos);
+    printk(KERN_INFO"flags-->%i\n",filp->f_flags);
+    
+    /*printk(KERN_INFO"write pointer-->%p",filp->f_op->write);
+    printk(KERN_INFO"write pointer-->%p",filp->f_op->write);*/
 }
 
 
 static void __exit Calc_device_release(void)
 {
     size_t i;
-    unregister_chrdev_region(drv_prvdata.device_number,4);
+    unregister_chrdev_region(calc_dev,4);
     printk(KERN_INFO "unregistered character device successfully\n");
     i=0;
     while(i<4)
     {
-        cdev_del(&drv_prvdata.dev_data[i].kcal_dev);
+        cdev_del(&kcalc_dev);
         i++;
     }
     printk(KERN_INFO "deleted  character devices from kernel\n");
