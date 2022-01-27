@@ -23,10 +23,6 @@ struct cdev kcalc_dev;
 
 
 
-
-
-
-
 const char *device_path="/dev/Calc";
 
 static struct file_operations fops={
